@@ -46,5 +46,5 @@ class counterServer(http.server.BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         return super().end_headers()
 
-servhttp = http.server.HTTPServer(('127.0.0.1',8081),counterServer)
+servhttp = http.server.HTTPServer(('127.0.0.1',8000),counterServer)
 servhttp.serve_forever()
