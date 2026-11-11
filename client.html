@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+
+<head>
+    <style>
+        .containerDiv {
+            display: grid;
+            grid-template-columns: auto auto auto auto;
+        }
+
+        .scoreCardDiv {
+            grid-template-rows: auto auto
+        }
+    </style>
+</head>
+
+<body>
+    <p>SET!</p>
+    <div id="scoresDiv" class="containerDiv"></div>
+    <button onclick="submitSet()">submit set</button>
+    <div id="cardsDiv" class="containerDiv"></div>
+    <script>
+
+        const cardsMap = new Map()
+        const wsUri = "ws://127.0.0.1:8080";
+        const httpURL = "http://127.0.0.1:8081"
+        let playerId = -1
+        const websocket = new WebSocket(wsUri);
+        websocket.addEventListener("error", (e) => {log(`ERROR`);});
+        websocket.addEventListener("open", () => {console.log("connected to server")})
+        websocket.addEventListener("close", () => {console.log("disconnected from server")})
+        websocket.addEventListener("message", (data) => {messageRecieve(data.data)})
+
+
+        function cardsToString(cards) {
+            if (cards.length == 0) {
+                return "[]"
+            }
+            str = "[["
+            for (card of cards) {
+                for (attr of card) {
+                    str = str.concat(attr).concat(",")
+                }
+                str = str.substring(0, str.length - 1).concat("]:[")
+            }
+            return str.substring(0, str.length - 2).concat("]")
+        }
+
+        function StringToCards(str) {
+            if (str == "[]") {return new Array()}
+            cards = new Array()
+            str = str.replaceAll(/[^0-9|:|,]/g, "").split(":")
+            for (part of str) {
+                card = new Array()
+                part = part.split(",")
+                for (attr of part) {
+                    card.push(parseInt(attr))
+                }
+                cards.push(card)
+            }
+            return cards
+        }
+        function getCardImgFileName(cardArray) {
+            return httpURL.concat("/cards/").concat(card.toString().replaceAll(/[^0-9]/g, "")).concat(".png")
+        }
+
+        function SetScoreboard(scoreMsg) {
+            document.getElementById("scoresDiv").innerHTML = ""
+            for (playerScore of scoreMsg.split(",")) {
+                playerScore = playerScore.split(":")
+                plaId = parseInt(playerScore.at(0))
+                const newScoreCard = document.createElement("div");
+                newScoreCard.className = "scoreCardDiv"
+                inhtml = '<p>Player '.concat(plaId)
+                if (plaId == playerId) {
+                    inhtml = inhtml.concat(' (you)')
+                }
+                inhtml = inhtml.concat('</p><p>Score: ').concat(parseInt(playerScore.at(1))).concat('</p>')
+                newScoreCard.innerHTML = inhtml;
+                document.getElementById("scoresDiv").appendChild(newScoreCard);
+            }
+        }
+
+        function removeCard(cardArray) {
+            document.getElementById(getCardId(cardArray)).remove()
+            cardsMap.delete(getCardId(cardArray))
+        }
+
+        function messageRecieve(message) {
+            console.log(message)
+            switch (message.substring(0, 3)) {
+                case "ac;":
+                    cards = StringToCards(message.substring(3))
+                    for (card of cards) {
+                        createCard(card)
+                    }
+                    break;
+
+                case "rc;":
+                    message = message.substring(3)
+                    cards = StringToCards(message)
+                    for (card of cards) {
+                        removeCard(card)
+                    }
+                    break;
+
+                case "sc;":
+                    SetScoreboard(message.substring(3).replaceAll(/[^0-9|:|,]/g, ""))
+                    break;
+
+                case "bo;":
+                    message = message.substring(3)
+                    cards = StringToCards(message)
+                    for (card of cards) {
+                        createCard(card)
+                    }
+
+                    break;
+
+                case "cn;":
+                    message = message.substring(3)
+                    playerId = parseInt(message)
+
+                    break;
+            }
+        }
+
+        function getNewValidId() {
+            let i = 0
+            while (Array.from(cardsMap.keys()).includes(i)) {
+                i = i + 1
+            }
+            return i
+        }
+
+        function ArraysIdentical(a1, a2) {
+            if (a1.length != a2.length) {return false}
+            i = 0
+            while (i < a1.length) {
+                if (a1.at(i) != a2.at(i)) {return false}
+                i = i + 1
+            }
+            return true
+        }
+
+        function getCardId(cardArray) {
+            for (key of cardsMap.keys()) {
+                if (ArraysIdentical(cardsMap.get(key), cardArray)) {
+                    return key
+                }
+            }
+            return -1
+
+        }
+
+        function submitSet() {
+            message = "sa;"
+            cards = new Array()
+            for (const key of cardsMap.keys()) {
+                if (document.getElementById("c".concat(key)).checked) {
+                    cards.push(cardsMap.get(key))
+                }
+            }
+            message = message.concat(cardsToString(cards))
+            websocket.send(message)
+        }
+
+        function createCard(cardArray) {
+            id = getNewValidId()
+            cardsMap.set(id, cardArray)
+            const newCard = document.createElement("div");
+            newCard.id = id
+            inhtml = '<input id="c'.concat(id).concat('" type="checkbox"><img width="90%" src="').concat(getCardImgFileName(cardArray)).concat('">');
+            newCard.innerHTML = inhtml;
+            document.getElementById("cardsDiv").appendChild(newCard);
+        }
+    </script>
+</body>
