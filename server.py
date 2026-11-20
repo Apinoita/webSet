@@ -62,13 +62,9 @@ async def endGame():
     global wantsToEndGame
     global deck
     global board
-    await msgAll("en")
+    await msgAll("en;")
     for conn in connected:
-        conn.close()
-    connected = set()
-    WSToPlayerId={}
-    playerPoints = {}
-    wantsToEndGame = {}
+        await conn.close()
     deck = gameLogic.createDeck()
     board = gameLogic.createBoard(deck)
 
@@ -90,13 +86,14 @@ async def msgAll(msg):
 
 def everyOneWantsToEndGame():
     global wantsToEndGame
-    for conn in wantsToEndGame.keys():
+    for conn in list(wantsToEndGame.keys()):
         if not wantsToEndGame[conn]:
             return False
     return True
 
 
 async def handleMessage(message:str, websocket):
+    print(message)
     if len(message)>2 and ";" in message:
         if message.startswith("sa"):
             message=message.removeprefix("sa;")
@@ -118,9 +115,10 @@ async def handleMessage(message:str, websocket):
                 if gameLogic.noSetsInBoard(board) and len(deck)==0:
                     endGame()
         if message.startswith("ea"):
-            wantsToEndGame[websocket]=True
+            wantsToEndGame[websocket]= not wantsToEndGame[websocket]
             if everyOneWantsToEndGame():
-                endGame()
+                await endGame()
+                print("game ended and new one started")
 
             
 
@@ -138,9 +136,15 @@ async def clientConnect(websocket):
     except websockets.exceptions.ConnectionClosed:
         print("cilent disconnected (abnormally)")
     finally:
+        print("client disconnected")
         connected.remove(websocket)
         playerPoints.pop(WSToPlayerId[websocket])
         WSToPlayerId.pop(websocket)
+        wantsToEndGame.pop(websocket)
+        if everyOneWantsToEndGame():
+            await endGame()
+            print("game ended and new one started")
+
 
 
 

@@ -14,22 +14,33 @@
 </head>
 
 <body>
-    <p>SET!</p>
+    <h1 id="ti">SET!</h1>
+    <p id="ep">Not wanting to end current game.</p>
     <div id="scoresDiv" class="containerDiv"></div>
-    <button onclick="submitSet()">submit set</button>
+    <button id="se" onclick="submitSet()">submit set</button>
+    <button id="pe" onclick="proposeToEndGame()">propose to end game</button>
     <div id="cardsDiv" class="containerDiv"></div>
     <script>
-
         const cardsMap = new Map()
         const wsUri = "ws://127.0.0.1:8080";
         const httpURL = "http://127.0.0.1:8000"
         let playerId = -1
+        let wantToEndGame = false
         const websocket = new WebSocket(wsUri);
-        websocket.addEventListener("error", (e) => {log(`ERROR`);});
-        websocket.addEventListener("open", () => {console.log("connected to server")})
-        websocket.addEventListener("close", () => {console.log("disconnected from server")})
-        websocket.addEventListener("message", (data) => {messageRecieve(data.data)})
+        websocket.addEventListener("error", (e) => { log(`ERROR`); });
+        websocket.addEventListener("open", () => { console.log("connected to server") })
+        websocket.addEventListener("close", () => { console.log("disconnected from server") })
+        websocket.addEventListener("message", (data) => { messageRecieve(data.data) })
 
+        function proposeToEndGame() {
+            wantToEndGame = !wantToEndGame
+            websocket.send("ea;")
+            if (wantToEndGame) {
+                document.getElementById("ep").innerHTML = "You are proposing to end the current game."
+            } else {
+                document.getElementById("ep").innerHTML = "You are not proposing to end the current game."
+            }
+        }
 
         function cardsToString(cards) {
             if (cards.length == 0) {
@@ -46,7 +57,7 @@
         }
 
         function StringToCards(str) {
-            if (str == "[]") {return new Array()}
+            if (str == "[]") { return new Array() }
             cards = new Array()
             str = str.replaceAll(/[^0-9|:|,]/g, "").split(":")
             for (part of str) {
@@ -78,6 +89,13 @@
                 newScoreCard.innerHTML = inhtml;
                 document.getElementById("scoresDiv").appendChild(newScoreCard);
             }
+        }
+
+        function EndGame() {
+            document.getElementById("ti").innerHTML = "Game Over"
+            document.getElementById("ep").innerHTML = "Join the next game by refreshing the page."
+            document.getElementById("pe").remove()
+            document.getElementById("se").remove()
         }
 
         function removeCard(cardArray) {
@@ -113,13 +131,15 @@
                     for (card of cards) {
                         createCard(card)
                     }
-
                     break;
 
                 case "cn;":
                     message = message.substring(3)
                     playerId = parseInt(message)
+                    break;
 
+                case "en;":
+                    EndGame()
                     break;
             }
         }
@@ -133,10 +153,10 @@
         }
 
         function ArraysIdentical(a1, a2) {
-            if (a1.length != a2.length) {return false}
+            if (a1.length != a2.length) { return false }
             i = 0
             while (i < a1.length) {
-                if (a1.at(i) != a2.at(i)) {return false}
+                if (a1.at(i) != a2.at(i)) { return false }
                 i = i + 1
             }
             return true
