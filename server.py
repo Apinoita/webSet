@@ -30,6 +30,7 @@ board = gameLogic.createBoard(deck)
 connected = set()
 WSToPlayerId={}
 playerPoints = {}
+wantsToEndGame = {}
 
 def stringFromCardList(l:list[list[int]]) -> str:
     string="["
@@ -54,6 +55,23 @@ def cardlistFromString(s:str):
         return []
     return cards
 
+async def endGame():
+    global connected
+    global WSToPlayerId
+    global playerPoints
+    global wantsToEndGame
+    global deck
+    global board
+    await msgAll("en")
+    for conn in connected:
+        conn.close()
+    connected = set()
+    WSToPlayerId={}
+    playerPoints = {}
+    wantsToEndGame = {}
+    deck = gameLogic.createDeck()
+    board = gameLogic.createBoard(deck)
+
 
 def getNewId():
     i=0
@@ -64,10 +82,19 @@ def getNewId():
 def addNewPlayer(websocket):
     WSToPlayerId[websocket] = getNewId()
     playerPoints[WSToPlayerId[websocket]] = 0
+    wantsToEndGame[websocket] = False
 
 async def msgAll(msg):
     for conn in connected:
         await conn.send(msg)
+
+def everyOneWantsToEndGame():
+    global wantsToEndGame
+    for conn in wantsToEndGame.keys():
+        if not wantsToEndGame[conn]:
+            return False
+    return True
+
 
 async def handleMessage(message:str, websocket):
     if len(message)>2 and ";" in message:
@@ -89,7 +116,11 @@ async def handleMessage(message:str, websocket):
                 await msgAll(f"sc;{playerPoints}")
 
                 if gameLogic.noSetsInBoard(board) and len(deck)==0:
-                    await msgAll("en")
+                    endGame()
+        if message.startswith("ea"):
+            wantsToEndGame[websocket]=True
+            if everyOneWantsToEndGame():
+                endGame()
 
             
 
